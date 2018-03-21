@@ -22,48 +22,54 @@ import org.onebusaway.csv_entities.schema.BeanWrapper;
 import org.onebusaway.csv_entities.schema.BeanWrapperFactory;
 import org.onebusaway.gtfs_merge.GtfsMergeContext;
 
-public class AndDuplicateScoringStrategy<T> implements
-    DuplicateScoringStrategy<T> {
+public class AndDuplicateScoringStrategy<T> implements DuplicateScoringStrategy<T> {
 
-  private List<DuplicateScoringStrategy<T>> _strategies = new ArrayList<DuplicateScoringStrategy<T>>();
+	private List<DuplicateScoringStrategy<T>> _strategies = new ArrayList<DuplicateScoringStrategy<T>>();
 
-  public void addPropertyMatch(String property) {
-    addStrategy(new PropertyMatchScoringStrategy<T>(property));
-  }
+	public void addPropertyMatch(String property) {
+		addStrategy(new PropertyMatchScoringStrategy<T>(property));
+	}
 
-  public void addStrategy(DuplicateScoringStrategy<T> strategy) {
-    _strategies.add(strategy);
-  }
+	public void addStrategy(DuplicateScoringStrategy<T> strategy) {
+		_strategies.add(strategy);
+	}
 
-  @Override
-  public double score(GtfsMergeContext context, T source, T target) {
-    double score = 1.0;
-    for (DuplicateScoringStrategy<T> strategy : _strategies) {
-      score *= strategy.score(context, source, target);
-      if (score == 0) {
-        break;
-      }
-    }
-    return score;
-  }
+	@Override
+	public double score(GtfsMergeContext context, T source, T target) {
+		double score = 1.0;
+		for (DuplicateScoringStrategy<T> strategy : _strategies) {
+			score *= strategy.score(context, source, target);
+			if (score == 0) {
+				break;
+			}
+		}
+		return score;
+	}
 
-  private static class PropertyMatchScoringStrategy<T> implements
-      DuplicateScoringStrategy<T> {
+	private static class PropertyMatchScoringStrategy<T> implements DuplicateScoringStrategy<T> {
 
-    private final String _property;
+		private final String _property;
 
-    public PropertyMatchScoringStrategy(String property) {
-      _property = property;
-    }
+		public PropertyMatchScoringStrategy(String property) {
+			_property = property;
+		}
 
-    @Override
-    public double score(GtfsMergeContext context, T source, T target) {
-      BeanWrapper wrappedA = BeanWrapperFactory.wrap(source);
-      BeanWrapper wrappedB = BeanWrapperFactory.wrap(target);
-      Object valueA = wrappedA.getPropertyValue(_property);
-      Object valueB = wrappedB.getPropertyValue(_property);
-      return (valueA == null && valueB == null)
-          || (valueA != null && valueA.equals(valueB)) ? 1.0 : 0.0;
-    }
-  }
+		@Override
+		public double score(GtfsMergeContext context, T source, T target) {
+			BeanWrapper wrappedA = BeanWrapperFactory.wrap(source);
+			BeanWrapper wrappedB = BeanWrapperFactory.wrap(target);
+			Object valueA = wrappedA.getPropertyValue(_property);
+			Object valueB = wrappedB.getPropertyValue(_property);
+
+			Class<?> propertyTypeA = wrappedA.getPropertyType(_property);
+			Class<?> propertyTypeB = wrappedB.getPropertyType(_property);
+			if (propertyTypeA.equals(propertyTypeB) && String.class.isAssignableFrom(propertyTypeA)) {
+				String stringA = (String) valueA;
+				String stringB = (String) valueB;
+				return (stringA == null && stringB == null) || (stringA != null && stringA.equalsIgnoreCase(stringB)) ? 1.0 : 0.0;
+			}
+
+			return (valueA == null && valueB == null) || (valueA != null && valueA.equals(valueB)) ? 1.0 : 0.0;
+		}
+	}
 }
